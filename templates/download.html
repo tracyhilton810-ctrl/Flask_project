@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download Progress - YouTube Downloader</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="container py-5">
+        <!-- Header -->
+        <div class="row justify-content-center mb-5">
+            <div class="col-md-8 text-center">
+                <h1 class="display-5 mb-3">
+                    <i class="fas fa-download text-success me-3"></i>
+                    Download in Progress
+                </h1>
+                <p class="lead text-muted">Please wait while your video is being downloaded</p>
+            </div>
+        </div>
+
+        <!-- Download Progress -->
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <!-- Video Title -->
+                        <div id="video-info" class="mb-4 text-center" style="display: none;">
+                            <h4 id="video-title" class="card-title"></h4>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span id="status-text" class="fw-bold">Initializing download...</span>
+                                <span id="progress-percent" class="badge bg-primary">0%</span>
+                            </div>
+                            <div class="progress" style="height: 20px;">
+                                <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Download Stats -->
+                        <div id="download-stats" class="row g-3 mb-4 text-center" style="display: none;">
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">Downloaded</small>
+                                <span id="bytes-downloaded" class="fw-bold">0 MB</span>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">Total Size</small>
+                                <span id="total-size" class="fw-bold">0 MB</span>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">Status</small>
+                                <span id="download-status" class="fw-bold">Starting</span>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="text-center">
+                            <a href="{{ url_for('index') }}" class="btn btn-secondary me-3">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Home
+                            </a>
+                            <a id="download-file-btn" href="#" class="btn btn-success" style="display: none;">
+                                <i class="fas fa-download me-2"></i>Download File
+                            </a>
+                        </div>
+
+                        <!-- Error Message -->
+                        <div id="error-message" class="alert alert-danger mt-4" style="display: none;">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <span id="error-text"></span>
+                        </div>
+
+                        <!-- Success Message -->
+                        <div id="success-message" class="alert alert-success mt-4" style="display: none;">
+                            <i class="fas fa-check-circle me-2"></i>
+                            Download completed successfully! Click the download button above to save the file.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Animation -->
+        <div id="loading-animation" class="row justify-content-center mt-4">
+            <div class="col-md-8 text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const downloadId = "{{ download_id }}";
+        let pollInterval;
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 MB';
+            const mb = bytes / (1024 * 1024);
+            return mb.toFixed(1) + ' MB';
+        }
+
+        function updateProgress() {
+            fetch(`/progress/${downloadId}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Progress update:', data);
+                    
+                    const progressBar = document.getElementById('progress-bar');
+                    const progressPercent = document.getElementById('progress-percent');
+                    const statusText = document.getElementById('status-text');
+                    const downloadStats = document.getElementById('download-stats');
+                    const videoInfo = document.getElementById('video-info');
+                    const errorMessage = document.getElementById('error-message');
+                    const successMessage = document.getElementById('success-message');
+                    const downloadBtn = document.getElementById('download-file-btn');
+                    const loadingAnimation = document.getElementById('loading-animation');
+
+                    if (data.status === 'error' || data.status === 'not_found') {
+                        // Handle error
+                        clearInterval(pollInterval);
+                        loadingAnimation.style.display = 'none';
+                        errorMessage.style.display = 'block';
+                        document.getElementById('error-text').textContent = data.error || 'Download failed';
+                        statusText.textContent = 'Download Failed';
+                        progressBar.classList.remove('progress-bar-animated');
+                        progressBar.classList.add('bg-danger');
+                        
+                    } else if (data.status === 'completed') {
+                        // Handle completion
+                        clearInterval(pollInterval);
+                        loadingAnimation.style.display = 'none';
+                        successMessage.style.display = 'block';
+                        downloadBtn.style.display = 'inline-block';
+                        downloadBtn.href = `/download-file/${downloadId}`;
+                        
+                        progressBar.style.width = '100%';
+                        progressPercent.textContent = '100%';
+                        statusText.textContent = 'Download Completed';
+                        progressBar.classList.remove('progress-bar-animated');
+                        progressBar.classList.add('bg-success');
+                        
+                    } else if (data.status === 'downloading') {
+                        // Handle progress update
+                        const percentage = data.percentage || 0;
+                        progressBar.style.width = percentage + '%';
+                        progressPercent.textContent = percentage + '%';
+                        statusText.textContent = 'Downloading...';
+                        
+                        // Show download stats
+                        downloadStats.style.display = 'flex';
+                        document.getElementById('bytes-downloaded').textContent = formatBytes(data.bytes_downloaded || 0);
+                        document.getElementById('total-size').textContent = formatBytes(data.total_size || 0);
+                        document.getElementById('download-status').textContent = 'Downloading';
+                        
+                    } else if (data.status === 'starting') {
+                        statusText.textContent = 'Starting download...';
+                    }
+
+                    // Show video info if available
+                    if (data.title) {
+                        videoInfo.style.display = 'block';
+                        document.getElementById('video-title').textContent = data.title;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking progress:', error);
+                    clearInterval(pollInterval);
+                    document.getElementById('loading-animation').style.display = 'none';
+                    document.getElementById('error-message').style.display = 'block';
+                    document.getElementById('error-text').textContent = 'Failed to check download progress';
+                });
+        }
+
+        // Start polling for progress updates
+        pollInterval = setInterval(updateProgress, 1000);
+        
+        // Initial update
+        updateProgress();
+    </script>
+</body>
+</html>

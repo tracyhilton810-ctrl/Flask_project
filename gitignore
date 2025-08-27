@@ -1,0 +1,24 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.env/
+.venv/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Downloaded files (yt-dlp output)
+downloads/
+*.mp4
+*.webm
+*.mkv
+
+# IDE settings
+.vscode/
+.idea/

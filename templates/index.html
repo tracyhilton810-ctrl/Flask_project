@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Video Downloader</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="container py-5">
+        <!-- Header -->
+        <div class="row justify-content-center mb-5">
+            <div class="col-md-8 text-center">
+                <h1 class="display-4 mb-3">
+                    <i class="fab fa-youtube text-danger me-3"></i>
+                    YouTube Downloader
+                </h1>
+                <p class="lead text-muted">Download your favorite YouTube videos in various quality formats</p>
+            </div>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="row justify-content-center mb-4">
+                    <div class="col-md-8">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                                <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} me-2"></i>
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- URL Input Form -->
+        <div class="row justify-content-center mb-5">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <form method="POST" action="{{ url_for('analyze_video') }}">
+                            <div class="mb-3">
+                                <label for="url" class="form-label">
+                                    <i class="fas fa-link me-2"></i>YouTube Video URL
+                                </label>
+                                <input type="url" class="form-control form-control-lg" id="url" name="url" 
+                                       placeholder="https://www.youtube.com/watch?v=..." 
+                                       value="{{ request.form.url if request.form.url else '' }}" required>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-search me-2"></i>Analyze Video
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Video Information -->
+        {% if video_info %}
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- Thumbnail -->
+                            <div class="col-md-4 mb-3">
+                                <img src="{{ video_info.thumbnail_url }}" class="img-fluid rounded" alt="Video Thumbnail">
+                            </div>
+                            
+                            <!-- Video Details -->
+                            <div class="col-md-8">
+                                <h3 class="card-title">{{ video_info.title }}</h3>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-sm-6">
+                                        <small class="text-muted d-block">
+                                            <i class="fas fa-user me-1"></i>Channel
+                                        </small>
+                                        <span>{{ video_info.author }}</span>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <small class="text-muted d-block">
+                                            <i class="fas fa-eye me-1"></i>Views
+                                        </small>
+                                        <span>{{ "{:,}".format(video_info.views) }}</span>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <small class="text-muted d-block">
+                                            <i class="fas fa-clock me-1"></i>Duration
+                                        </small>
+                                        <span>{{ (video_info.length // 60)|int }}:{{ "%02d"|format(video_info.length % 60) }}</span>
+                                    </div>
+                                </div>
+
+                                <!-- Download Options -->
+                                <h5 class="mb-3">
+                                    <i class="fas fa-download me-2"></i>Download Options
+                                </h5>
+                                
+                                <form method="POST" action="{{ url_for('start_download') }}">
+                                    <input type="hidden" name="url" value="{{ video_info.url }}">
+                                    
+                                    <!-- Video Quality Options -->
+                                    {% if video_info.video_streams %}
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Video Quality</label>
+                                        {% for stream in video_info.video_streams %}
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="quality" 
+                                                   id="quality_{{ stream.resolution }}" 
+                                                   value="{{ stream.resolution }}">
+                                            <label class="form-check-label" for="quality_{{ stream.resolution }}">
+                                                <span class="badge bg-secondary me-2">{{ stream.resolution }}</span>
+                                                <span class="text-muted">{{ stream.filesize_mb }} MB</span>
+                                            </label>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+
+                                    <!-- Audio Option -->
+                                    {% if video_info.audio_size_mb > 0 %}
+                                    <div class="mb-4">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="quality" 
+                                                   id="quality_audio" value="audio">
+                                            <label class="form-check-label" for="quality_audio">
+                                                <span class="badge bg-info me-2">Audio Only</span>
+                                                <span class="text-muted">{{ video_info.audio_size_mb }} MB</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+
+                                    <div class="d-grid">
+                                        <button type="submit" class="btn btn-success btn-lg">
+                                            <i class="fas fa-download me-2"></i>Start Download
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <!-- Instructions -->
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card border-0 bg-transparent">
+                    <div class="card-body text-center">
+                        <div class="mb-4">
+                            <i class="fas fa-video display-1 text-muted"></i>
+                        </div>
+                        <h4 class="text-muted mb-3">How to use</h4>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-primary rounded-pill me-3">1</span>
+                                    <span>Paste YouTube URL</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-primary rounded-pill me-3">2</span>
+                                    <span>Choose quality</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-primary rounded-pill me-3">3</span>
+                                    <span>Download video</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="container-fluid bg-dark py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 text-center">
+                    <p class="text-muted mb-0">
+                        <i class="fas fa-download me-2"></i>
+                        YouTube Video Downloader - Download videos for offline viewing
+                    </p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
